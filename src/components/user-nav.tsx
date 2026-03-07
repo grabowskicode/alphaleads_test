@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,19 +16,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { User } from "@supabase/supabase-js";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-// IMPORT OUR NEW SERVER ACTION!
-import { logoutUser } from "@/app/actions";
-
 interface UserNavProps {
   user?: User | null;
 }
 
 export function UserNav({ user }: UserNavProps) {
   const [userEmail, setUserEmail] = useState(user?.email || "user@example.com");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // This is the Next.js way to handle loading states for Server Actions
-  const [isPending, startTransition] = useTransition();
-
+  // 1. We import the Next.js router to force the redirect
+  const router = useRouter();
   const supabase = createClientComponentClient();
 
   useEffect(() => {
@@ -43,6 +41,19 @@ export function UserNav({ user }: UserNavProps) {
     };
     getUser();
   }, [supabase, user]);
+
+  // 2. The Native Client-Side Logout Function
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Keeps the dropdown menu open while loading
+    setIsLoggingOut(true);
+
+    // Safely destroy the Supabase session locally
+    await supabase.auth.signOut();
+
+    // Push the user to the login screen and refresh the router state
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <DropdownMenu>
@@ -84,19 +95,13 @@ export function UserNav({ user }: UserNavProps) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
 
-        {/* THIS IS WHERE THE MAGIC HAPPENS */}
+        {/* 3. Replaced Server Action with Native Client Function */}
         <DropdownMenuItem
-          disabled={isPending}
-          onClick={(e) => {
-            e.preventDefault(); // Keep menu open
-            // Trigger the server action in the background
-            startTransition(() => {
-              logoutUser();
-            });
-          }}
+          disabled={isLoggingOut}
+          onClick={handleLogout}
           className="cursor-pointer focus:bg-primary focus:text-primary-foreground text-red-500 focus:text-red-500"
         >
-          {isPending ? "Logging out..." : "Log out"}
+          {isLoggingOut ? "Logging out..." : "Log out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

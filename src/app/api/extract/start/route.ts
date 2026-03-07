@@ -52,22 +52,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. THE "HOLD" CALCULATION (Dynamic Pricing)
-    // Max 5,000 leads to protect the $15 budget. Cap each zip at a max of 500.
-    const MAX_RESULTS_TOTAL = 5000;
-    const MAX_PER_ZIP = 500;
+    // 3. THE "GAS FEE" CALCULATION
+    // Charge 1 credit per zip code to run the background engine
+    const reservedCost = zipCodes.length;
 
-    const dynamicLimit = Math.min(
-      MAX_PER_ZIP,
+    // Protect your Outscraper Budget: Cap total free leads at 2,000 per scan
+    const MAX_RESULTS_TOTAL = 2000;
+    const dynamicLimit = Math.max(
+      10,
       Math.floor(MAX_RESULTS_TOTAL / zipCodes.length),
     );
-    const reservedCost = zipCodes.length * dynamicLimit; // e.g. 10 zips * 500 limit = 5,000 Credits
 
-    // 4. PRE-CHARGE THE USER
+    // 4. CHARGE THE USER THE FLAT FEE
     const { error: rpcError } = await supabase.rpc("start_scan_transaction", {
       p_user_id: userId,
-      p_cost: reservedCost, // Dynamic deduction!
-      p_max_scans: 10,
+      p_cost: reservedCost, // e.g., Just 40-50 Credits!
+      p_max_scans: 100, // Increased limit since scans are now very cheap
     });
 
     if (rpcError) {

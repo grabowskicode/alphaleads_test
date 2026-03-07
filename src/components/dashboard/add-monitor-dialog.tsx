@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Loader2,
@@ -24,6 +24,44 @@ import { Label } from "@/components/ui/label";
 import { useData } from "@/context/data-provider";
 import { useToast } from "@/hooks/use-toast";
 
+// THE ALIAS DICTIONARY: Translates English names to native database names
+const CITY_ALIASES: Record<string, string> = {
+  bucharest: "bucuresti",
+  vienna: "wien",
+  rome: "roma",
+  prague: "praha",
+  warsaw: "warszawa",
+  budapest: "budapest",
+  copenhagen: "kobenhavn",
+  lisbon: "lisboa",
+  athens: "athina",
+  brussels: "bruxelles",
+  munich: "munchen",
+  milan: "milano",
+  florence: "firenze",
+  naples: "napoli",
+};
+
+// PREDEFINED HIGH-VALUE NICHES
+const COMMON_KEYWORDS = [
+  "Accountants",
+  "Financial Advisors",
+  "Gyms",
+  "Personal Trainers",
+  "Dentists",
+  "Plumbers",
+  "Roofers",
+  "Real Estate Agents",
+  "Lawyers",
+  "Restaurants",
+  "Chiropractors",
+  "HVAC Services",
+  "Landscaping",
+  "Electricians",
+  "Marketing Agencies",
+  "Web Designers",
+];
+
 interface AreaGroup {
   admin2: string;
   zipCount: number;
@@ -40,11 +78,63 @@ export function AddMonitorDialog() {
   const { toast } = useToast();
 
   const [keyword, setKeyword] = useState("");
-  const [cityInput, setCityInput] = useState("");
-  const [areas, setAreas] = useState<AreaGroup[]>([]);
+  const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
 
-  // CHANGED: Now an array to hold multiple selections
+  const [cityInput, setCityInput] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+
+  const [foundCityName, setFoundCityName] = useState("");
+  const [areas, setAreas] = useState<AreaGroup[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+
+  // Filter keywords based on user input
+  const filteredKeywords = COMMON_KEYWORDS.filter((k) =>
+    k.toLowerCase().includes(keyword.toLowerCase()),
+  );
+
+  // --- NEW: LIVE CITY AUTOCOMPLETE DEBOUNCE ---
+  useEffect(() => {
+    const fetchCitySuggestions = async () => {
+      if (cityInput.trim().length < 2) {
+        setCitySuggestions([]);
+        return;
+      }
+
+      let normalizedSearch = cityInput
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+      if (CITY_ALIASES[normalizedSearch]) {
+        normalizedSearch = CITY_ALIASES[normalizedSearch];
+      }
+
+      // Query database for cities starting with the typed letters
+      const { data } = await supabase
+        .from("postal_codes")
+        .select("city")
+        .ilike("city_search", `${normalizedSearch}%`)
+        .limit(50); // Pull 50 to ensure we get distinct names
+
+      if (data) {
+        // Extract unique city names and limit to top 5 suggestions
+        const uniqueCities = Array.from(new Set(data.map((d) => d.city))).slice(
+          0,
+          5,
+        );
+        setCitySuggestions(uniqueCities);
+      }
+    };
+
+    // Wait 300ms after user stops typing before hitting the database
+    const timer = setTimeout(() => {
+      fetchCitySuggestions();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [cityInput, supabase]);
 
   // --- 1. SEARCH CITY ---
   const handleSearchCity = async () => {
@@ -52,10 +142,20 @@ export function AddMonitorDialog() {
     setLoading(true);
 
     try {
+      let normalizedSearch = cityInput
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+      if (CITY_ALIASES[normalizedSearch]) {
+        normalizedSearch = CITY_ALIASES[normalizedSearch];
+      }
+
       const { data, error } = await supabase
         .from("postal_codes")
-        .select("admin2, zip_code")
-        .ilike("city", `%${cityInput.trim()}%`);
+        .select("city, admin2, zip_code")
+        .ilike("city_search", `%${normalizedSearch}%`);
 
       if (error) throw error;
 
@@ -69,6 +169,8 @@ export function AddMonitorDialog() {
         return;
       }
 
+      setFoundCityName(data[0].city);
+
       const grouped = data.reduce((acc: Record<string, number>, curr) => {
         const areaName = curr.admin2 || "Main District";
         acc[areaName] = (acc[areaName] || 0) + 1;
@@ -81,7 +183,6 @@ export function AddMonitorDialog() {
           return {
             admin2: name,
             zipCount: safeCount,
-            // 1 Credit per Zip Code just to run the engine (Max 50 Credits total)
             estCost: safeCount * 1,
           };
         },
@@ -100,32 +201,26 @@ export function AddMonitorDialog() {
     }
   };
 
-  // --- NEW: TOGGLE MULTIPLE AREAS ---
   const toggleArea = (areaName: string) => {
-    setSelectedAreas(
-      (prev) =>
-        prev.includes(areaName)
-          ? prev.filter((a) => a !== areaName) // Remove if already selected
-          : [...prev, areaName], // Add if not selected
+    setSelectedAreas((prev) =>
+      prev.includes(areaName)
+        ? prev.filter((a) => a !== areaName)
+        : [...prev, areaName],
     );
   };
 
-  // --- NEW: DYNAMIC TOTALS ---
   const selectedDetails = areas.filter((a) => selectedAreas.includes(a.admin2));
   const totalCost = selectedDetails.reduce((sum, a) => sum + a.estCost, 0);
   const totalZips = selectedDetails.reduce((sum, a) => sum + a.zipCount, 0);
 
-  // Vercel Timeout Protection
   const isOverLimit = totalZips > 50;
 
-  // --- 2. SAVE THE SCAN ---
   const handleSubmit = async () => {
     if (!keyword || selectedAreas.length === 0 || isOverLimit) return;
     setLoading(true);
 
     try {
-      // Format: "London | Westminster, Camden"
-      const formattedLocation = `${cityInput.trim()} | ${selectedAreas.join(", ")}`;
+      const formattedLocation = `${foundCityName.trim()} | ${selectedAreas.join(", ")}`;
 
       const result = await addMonitor({
         keyword,
@@ -135,8 +230,9 @@ export function AddMonitorDialog() {
 
       if (result.success) {
         toast({
-          title: "Scan Created",
-          description: `Ready to scan ${keyword} in ${formattedLocation}.`,
+          title: "Scan Started Successfully!",
+          description: `We are now scraping ${keyword} in the background. We will email you as soon as your leads are ready!`,
+          duration: 9000, // Keeps the message on screen a bit longer so they can read it
         });
         resetState();
       } else {
@@ -160,8 +256,12 @@ export function AddMonitorDialog() {
   const resetState = () => {
     setKeyword("");
     setCityInput("");
+    setCitySuggestions([]);
+    setFoundCityName("");
     setAreas([]);
     setSelectedAreas([]);
+    setShowKeywordSuggestions(false);
+    setShowCitySuggestions(false);
     setStep(1);
     setOpen(false);
   };
@@ -183,36 +283,90 @@ export function AddMonitorDialog() {
       <DialogContent className="sm:max-w-[450px] rounded-3xl border-zinc-800 bg-[#0b0a0b] text-white">
         <DialogHeader>
           <DialogTitle>
-            {step === 1 ? "Target Your Search" : "Select Search Areas"}
+            {step === 1 ? "Target Your Search" : `Targeting: ${foundCityName}`}
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
             {step === 1
               ? "Define the business type and city."
-              : `Select multiple districts (Max 50 Zip Codes total).`}
+              : `Select multiple districts in ${foundCityName} (Max 50 Zip Codes total).`}
           </DialogDescription>
         </DialogHeader>
 
         {/* STEP 1 */}
         {step === 1 && (
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
+            {/* KEYWORD INPUT WITH SUGGESTIONS */}
+            <div className="grid gap-2 relative">
               <Label>Target Keyword</Label>
               <Input
                 placeholder="e.g. Dentists, Gyms, Roofers"
                 value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setShowKeywordSuggestions(true);
+                }}
+                onFocus={() => setShowKeywordSuggestions(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowKeywordSuggestions(false), 200)
+                }
                 className="bg-zinc-900 border-zinc-800 focus-visible:ring-[#ffe600]"
               />
+
+              {showKeywordSuggestions &&
+                keyword &&
+                filteredKeywords.length > 0 && (
+                  <div className="absolute top-[65px] left-0 z-50 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto overflow-x-hidden">
+                    {filteredKeywords.map((kw) => (
+                      <div
+                        key={kw}
+                        className="px-4 py-3 cursor-pointer text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors border-b border-zinc-800/50 last:border-0"
+                        onClick={() => {
+                          setKeyword(kw);
+                          setShowKeywordSuggestions(false);
+                        }}
+                      >
+                        {kw}
+                      </div>
+                    ))}
+                  </div>
+                )}
             </div>
-            <div className="grid gap-2">
+
+            {/* CITY INPUT WITH LIVE DB SUGGESTIONS */}
+            <div className="grid gap-2 relative">
               <Label>City</Label>
               <Input
                 placeholder="e.g. London, New York"
                 value={cityInput}
-                onChange={(e) => setCityInput(e.target.value)}
+                onChange={(e) => {
+                  setCityInput(e.target.value);
+                  setShowCitySuggestions(true);
+                }}
+                onFocus={() => setShowCitySuggestions(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowCitySuggestions(false), 200)
+                }
                 className="bg-zinc-900 border-zinc-800 focus-visible:ring-[#ffe600]"
               />
+
+              {showCitySuggestions && citySuggestions.length > 0 && (
+                <div className="absolute top-[65px] left-0 z-50 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto overflow-x-hidden">
+                  {citySuggestions.map((cityName) => (
+                    <div
+                      key={cityName}
+                      className="px-4 py-3 cursor-pointer text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors border-b border-zinc-800/50 last:border-0"
+                      onClick={() => {
+                        setCityInput(cityName);
+                        setShowCitySuggestions(false);
+                      }}
+                    >
+                      {cityName}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
             <Button
               onClick={handleSearchCity}
               disabled={loading || !keyword || !cityInput}
@@ -270,7 +424,6 @@ export function AddMonitorDialog() {
               })}
             </div>
 
-            {/* ERROR WARNING IF OVER LIMIT */}
             {isOverLimit && (
               <div className="text-red-400 text-xs text-center font-bold bg-red-500/10 py-2 rounded-lg">
                 ⚠️ Too many areas selected ({totalZips}/50 Zip Codes). Please

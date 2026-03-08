@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  LayoutDashboard,
-  Users,
-  Settings,
-  LogOut,
-  Coins,
-  ChevronUp,
-} from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Coins, ChevronUp } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -29,15 +22,27 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useData } from "@/context/data-provider";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { userCredits, userEmail } = useData();
   const credits = userCredits ?? 0;
 
+  // Initialize Supabase for the logout function
+  const supabase = createClientComponentClient();
+
   // LOGIC: Get first 2 letters of email for the icon
   const displayEmail = userEmail || "user@alphaleads.com";
   const userInitials = displayEmail.substring(0, 2).toUpperCase();
+
+  // THE NATIVE LOGOUT FUNCTION
+  const handleLogout = async () => {
+    // 1. Destroy the session
+    await supabase.auth.signOut();
+    // 2. Force a hard redirect to the login page
+    window.location.href = "/login";
+  };
 
   return (
     <Sidebar
@@ -104,7 +109,6 @@ export function AppSidebar() {
                       >
                         <item.icon
                           size={20}
-                          // Also forcing the icon to stay black when active
                           className={isActive ? "!text-black" : "text-current"}
                         />
                         <span className="font-semibold tracking-wide">
@@ -143,7 +147,11 @@ export function AppSidebar() {
             align="center"
             className="w-56 rounded-2xl border border-zinc-800 bg-zinc-950/90 p-2 text-zinc-200 shadow-2xl backdrop-blur-xl"
           >
-            <DropdownMenuItem className="rounded-xl text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer py-2.5 px-3">
+            {/* ADDED THE onClick HANDLER HERE */}
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="rounded-xl text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer py-2.5 px-3"
+            >
               <LogOut size={16} className="mr-2" />
               <span className="font-medium">Log out</span>
             </DropdownMenuItem>

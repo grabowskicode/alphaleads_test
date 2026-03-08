@@ -24,6 +24,7 @@ interface DataContextType {
   startScrape: (monitor: Monitor) => Promise<void>;
   unlockLead: (leadId: string) => Promise<void>;
   unlockAllLeads: (leadIds: string[]) => Promise<void>;
+  clearLeads: () => Promise<void>; // NEW: Added to interface
   clearData: () => Promise<void>;
   deleteMonitor: (monitorId: string) => Promise<void>;
   updateMonitor: (
@@ -253,6 +254,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // --- 6. CLEAR LEADS (WORKSPACE RESET) ---
+  const clearLeads = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // This ONLY deletes the user's connection to the lead.
+    // The business data remains safely stored in your master 'leads' database.
+    await supabase.from("user_leads").delete().eq("user_id", user.id);
+    setLeads([]);
+
+    toast({
+      title: "Workspace Cleared",
+      description: "Your leads have been cleared for a fresh start.",
+    });
+  };
+
   const clearData = async () => {
     const {
       data: { user },
@@ -295,6 +314,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         startScrape,
         unlockLead,
         unlockAllLeads,
+        clearLeads, // NEW: Exposed via provider
         clearData,
         deleteMonitor,
         updateMonitor,

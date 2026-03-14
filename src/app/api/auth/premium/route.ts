@@ -15,9 +15,10 @@ export async function POST(req: Request) {
     // 1. Verify the License Key
     const { data: keyData, error: keyError } = await supabaseAdmin
       .from("license_keys")
-      .select("*")
+      .update({ is_used: true })
       .eq("pin_code", licenseKey)
       .eq("is_used", false)
+      .select()
       .single();
 
     if (keyError || !keyData) {

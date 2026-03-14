@@ -48,17 +48,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const reservedCost = zipCodes.length;
-    const MAX_RESULTS_TOTAL = 2000;
+    // 🚨 THE 500 MAX CAP: mathematically prevents user from exceeding $15/month
+    const MAX_RESULTS_TOTAL = 500;
     const dynamicLimit = Math.max(
-      10,
+      5,
       Math.floor(MAX_RESULTS_TOTAL / zipCodes.length),
     );
 
+    // 🚨 CONSUME 1 SCAN (Costs 0 Credits)
     const { error: rpcError } = await supabase.rpc("start_scan_transaction", {
       p_user_id: userId,
-      p_cost: reservedCost,
-      p_max_scans: 100,
     });
 
     if (rpcError) {
@@ -69,19 +68,16 @@ export async function POST(req: Request) {
       .map((zip) => `${keyword} in ${zip}`)
       .join(",");
     addLog(
-      `STARTING ASYNC JOB: ${zipCodes.length} zips for "${keyword}" (-${reservedCost} reserved)`,
+      `STARTING ASYNC JOB: ${zipCodes.length} zips for "${keyword}" (1 Scan consumed)`,
     );
 
-    // 🚨 SECURE FIX 1: Use Environment Variable for Host
-    // Make sure NEXT_PUBLIC_APP_URL is set in your .env (e.g., https://alphaleads.com)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:9002";
-
-    // 🚨 SECURE FIX 2: Attach WEBHOOK_SECRET to the callback URL
     const webhookToken = process.env.WEBHOOK_SECRET;
     if (!webhookToken)
       throw new Error("Server configuration error: Missing WEBHOOK_SECRET");
 
-    const webhookUrl = `${appUrl}/api/webhooks/outscraper?userId=${userId}&cost=${reservedCost}&keyword=${encodeURIComponent(keyword)}&token=${webhookToken}`;
+    // We no longer pass 'cost' in the webhook URL because scans are free
+    const webhookUrl = `${appUrl}/api/webhooks/outscraper?userId=${userId}&keyword=${encodeURIComponent(keyword)}&token=${webhookToken}`;
 
     const apiUrl = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(searchQueries)}&limit=${dynamicLimit}&async=true&webhookUrl=${encodeURIComponent(webhookUrl)}`;
 
@@ -91,11 +87,9 @@ export async function POST(req: Request) {
     const data = await response.json();
 
     if (!data.id) {
-      await supabase.rpc("increment_credits", {
-        p_user_id: userId,
-        p_amount: reservedCost,
-      });
-      throw new Error("Outscraper API Failed. Credits Refunded.");
+      // Instant API Failure = Refund the scan
+      await supabase.rpc("refund_scan", { p_user_id: userId });
+      throw new Error("Outscraper API Failed. Scan Refunded.");
     }
 
     await supabase.from("processed_requests").insert({

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
-    // 🚨 SECURE FIX 3: Verify the Secret Token before doing ANYTHING
+    // 🚨 SECURE: Verify the Secret Token
     const token = searchParams.get("token");
     if (token !== process.env.WEBHOOK_SECRET) {
       console.error("CRITICAL: Unauthorized webhook attempt blocked.");
@@ -23,7 +23,6 @@ export async function POST(req: Request) {
     }
 
     const userId = searchParams.get("userId");
-    const reservedCost = parseInt(searchParams.get("cost") || "0", 10);
     const keyword = searchParams.get("keyword") || "Unknown";
 
     const body = await req.json();
@@ -37,27 +36,24 @@ export async function POST(req: Request) {
       });
     }
 
-    const actualFound = allLeads.length;
-    const refundAmount = reservedCost - actualFound;
-
-    if (refundAmount > 0 && userId) {
-      await supabaseAdmin.rpc("increment_credits", {
-        p_user_id: userId,
-        p_amount: refundAmount,
-      });
-      console.log(`Refunded ${refundAmount} credits to User ${userId}`);
-    }
-
+    // Sniper Filter: Only keep leads that need a website or have bad reviews
     const badBusinesses = allLeads.filter((lead: any) => {
       const hasWebsite = lead.site && lead.site.trim() !== "";
       const hasGoodRating = lead.rating && lead.rating > 4.0;
       return !hasWebsite || !hasGoodRating;
     });
 
+    // 🚨 IF ZERO LEADS FOUND: Refund the scan so the user isn't penalized
     if (badBusinesses.length === 0) {
+      if (userId) {
+        await supabaseAdmin.rpc("refund_scan", { p_user_id: userId });
+        console.log(
+          `Scan refunded for User ${userId} (0 actionable leads found)`,
+        );
+      }
       return NextResponse.json({
         success: true,
-        message: "No actionable businesses found.",
+        message: "No actionable businesses found. Scan refunded.",
       });
     }
 
@@ -92,6 +88,7 @@ export async function POST(req: Request) {
         .eq("request_id", body.id);
     }
 
+    // Send Success Email
     if (userId) {
       const { data: userData } = await supabaseAdmin
         .from("users")
@@ -114,7 +111,6 @@ export async function POST(req: Request) {
                 <p style="margin: 0 0 10px 0;"><strong>Scan Results:</strong></p>
                 <ul style="margin: 0;">
                   <li><strong>High-Value Leads Found:</strong> ${formattedLeads.length}</li>
-                  <li><strong>Credits Auto-Refunded:</strong> ${refundAmount} CR</li>
                 </ul>
               </div>
               <p>Log in to your dashboard to view and unlock their contact information.</p>
@@ -126,7 +122,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      refunded: refundAmount,
       savedLeads: formattedLeads.length,
     });
   } catch (error: any) {

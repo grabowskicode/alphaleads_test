@@ -8,6 +8,8 @@ import {
   Search,
   CheckSquare,
   Square,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { useData } from "@/context/data-provider";
 import { useToast } from "@/hooks/use-toast";
 
-// THE ALIAS DICTIONARY: Translates English names to native database names
+// THE ALIAS DICTIONARY
 const CITY_ALIASES: Record<string, string> = {
   bucharest: "bucuresti",
   vienna: "wien",
@@ -44,22 +46,157 @@ const CITY_ALIASES: Record<string, string> = {
 
 // PREDEFINED HIGH-VALUE NICHES
 const COMMON_KEYWORDS = [
-  "Accountants",
-  "Financial Advisors",
-  "Gyms",
-  "Personal Trainers",
-  "Dentists",
   "Plumbers",
   "Roofers",
-  "Real Estate Agents",
-  "Lawyers",
-  "Restaurants",
-  "Chiropractors",
-  "HVAC Services",
-  "Landscaping",
+  "HVAC Contractors",
   "Electricians",
-  "Marketing Agencies",
-  "Web Designers",
+  "General Contractors",
+  "Solar Installers",
+  "Pool Builders",
+  "Custom Home Builders",
+  "Kitchen Remodelers",
+  "Bathroom Remodelers",
+  "Foundation Repair",
+  "Tree Services",
+  "Paving Contractors",
+  "Garage Door Services",
+  "Fencing Contractors",
+  "Water Damage Restoration",
+  "Fire Damage Restoration",
+  "Mold Remediation",
+  "Window Installers",
+  "Siding Contractors",
+  "Masonry Contractors",
+  "Epoxy Flooring",
+  "Landscaping",
+  "Pest Control",
+  "Home Inspectors",
+  "Carpet Cleaning",
+  "Cabinet Makers",
+  "Driveway Paving",
+  "Deck Builders",
+  "Awning Suppliers",
+  "Dentists",
+  "Orthodontists",
+  "Oral Surgeons",
+  "Med Spas",
+  "Plastic Surgeons",
+  "Dermatologists",
+  "Chiropractors",
+  "Physical Therapists",
+  "Optometrists",
+  "LASIK Surgeons",
+  "Fertility Clinics",
+  "Weight Loss Clinics",
+  "Regenerative Medicine",
+  "Podiatrists",
+  "Veterinarians",
+  "Emergency Vets",
+  "Concierge Medicine",
+  "Addiction Treatment Centers",
+  "Hearing Aid Dispensaries",
+  "Medical Marijuana Dispensaries",
+  "Acupuncture Clinics",
+  "Sleep Clinics",
+  "Prosthetics Providers",
+  "Speech Pathologists",
+  "Corporate Lawyers",
+  "Personal Injury Lawyers",
+  "Criminal Defense Attorneys",
+  "Family Law Attorneys",
+  "Estate Planning Attorneys",
+  "CPAs",
+  "Accounting Firms",
+  "Financial Advisors",
+  "Wealth Management",
+  "Business Consultants",
+  "IT Support",
+  "Managed IT Services",
+  "Cybersecurity Firms",
+  "Private Investigators",
+  "Staffing Agencies",
+  "Commercial Real Estate",
+  "Property Management",
+  "Mortgage Brokers",
+  "Title Companies",
+  "Architects",
+  "Engineering Firms",
+  "Appraisers",
+  "Public Relations Agencies",
+  "Tax Preparation Services",
+  "Notary Publics",
+  "Bail Bondsmen",
+  "Auto Body Shops",
+  "Collision Repair",
+  "Luxury Auto Repair",
+  "Mobile Detailing",
+  "Car Dealerships",
+  "RV Dealerships",
+  "Boat Dealerships",
+  "Semi-Truck Repair",
+  "Fleet Maintenance",
+  "Towing Services",
+  "Auto Glass Repair",
+  "Transmission Shops",
+  "Performance Tuning",
+  "Car Wrap Shops",
+  "Marine Mechanics",
+  "Aviation Repair",
+  "Motorcycle Repair",
+  "Heavy Equipment Repair",
+  "Luxury Hair Salons",
+  "Barbershops",
+  "Day Spas",
+  "Massage Therapy",
+  "Nail Salons",
+  "Microblading Services",
+  "Tattoo Parlors",
+  "Boutique Gyms",
+  "Personal Training Studios",
+  "Pilates Studios",
+  "Yoga Studios",
+  "Martial Arts Schools",
+  "Cryotherapy Centers",
+  "Laser Hair Removal",
+  "Tanning Salons",
+  "IV Therapy Lounges",
+  "CrossFit Gyms",
+  "Commercial Cleaners",
+  "Commercial Landscaping",
+  "Office Furniture",
+  "Sign Shops",
+  "Commercial Printers",
+  "Logistics Companies",
+  "Warehousing",
+  "Commercial Security",
+  "Industrial Equipment Repair",
+  "Commercial HVAC",
+  "Commercial Roofers",
+  "Janitorial Services",
+  "Freight Forwarders",
+  "Vending Machine Operators",
+  "Commercial Painters",
+  "Waste Management",
+  "Scrap Metal Yards",
+  "Uniform Suppliers",
+  "Commercial Glaziers",
+  "Boutique Hotels",
+  "Bed & Breakfasts",
+  "Wedding Venues",
+  "Event Planners",
+  "High-End Caterers",
+  "Corporate Catering",
+  "Party Rentals",
+  "Yacht Rentals",
+  "Limo Services",
+  "Charter Buses",
+  "Golf Courses",
+  "Country Clubs",
+  "Wineries",
+  "Breweries",
+  "Escape Rooms",
+  "Axe Throwing Venues",
+  "Equipment Rental Agencies",
 ];
 
 interface AreaGroup {
@@ -88,12 +225,13 @@ export function AddMonitorDialog() {
   const [areas, setAreas] = useState<AreaGroup[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
 
-  // Filter keywords based on user input
+  // STRICT VALIDATION: Is the current input exactly matching a predefined keyword?
+  const isValidKeyword = COMMON_KEYWORDS.includes(keyword);
+
   const filteredKeywords = COMMON_KEYWORDS.filter((k) =>
     k.toLowerCase().includes(keyword.toLowerCase()),
   );
 
-  // --- NEW: LIVE CITY AUTOCOMPLETE DEBOUNCE ---
   useEffect(() => {
     const fetchCitySuggestions = async () => {
       if (cityInput.trim().length < 2) {
@@ -111,15 +249,13 @@ export function AddMonitorDialog() {
         normalizedSearch = CITY_ALIASES[normalizedSearch];
       }
 
-      // Query database for cities starting with the typed letters
       const { data } = await supabase
         .from("postal_codes")
         .select("city")
         .ilike("city_search", `${normalizedSearch}%`)
-        .limit(50); // Pull 50 to ensure we get distinct names
+        .limit(50);
 
       if (data) {
-        // Extract unique city names and limit to top 5 suggestions
         const uniqueCities = Array.from(new Set(data.map((d) => d.city))).slice(
           0,
           5,
@@ -128,7 +264,6 @@ export function AddMonitorDialog() {
       }
     };
 
-    // Wait 300ms after user stops typing before hitting the database
     const timer = setTimeout(() => {
       fetchCitySuggestions();
     }, 300);
@@ -136,9 +271,9 @@ export function AddMonitorDialog() {
     return () => clearTimeout(timer);
   }, [cityInput, supabase]);
 
-  // --- 1. SEARCH CITY ---
   const handleSearchCity = async () => {
-    if (!cityInput) return;
+    // 🚨 Extra safety check to prevent manual bypass
+    if (!cityInput || !isValidKeyword) return;
     setLoading(true);
 
     try {
@@ -216,7 +351,7 @@ export function AddMonitorDialog() {
   const isOverLimit = totalZips > 50;
 
   const handleSubmit = async () => {
-    if (!keyword || selectedAreas.length === 0 || isOverLimit) return;
+    if (!isValidKeyword || selectedAreas.length === 0 || isOverLimit) return;
     setLoading(true);
 
     try {
@@ -232,7 +367,7 @@ export function AddMonitorDialog() {
         toast({
           title: "Scan Started Successfully!",
           description: `We are now scraping ${keyword} in the background. We will email you as soon as your leads are ready!`,
-          duration: 9000, // Keeps the message on screen a bit longer so they can read it
+          duration: 9000,
         });
         resetState();
       } else {
@@ -292,47 +427,60 @@ export function AddMonitorDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {/* STEP 1 */}
         {step === 1 && (
           <div className="grid gap-4 py-4">
-            {/* KEYWORD INPUT WITH SUGGESTIONS */}
             <div className="grid gap-2 relative">
-              <Label>Target Keyword</Label>
-              <Input
-                placeholder="e.g. Dentists, Gyms, Roofers"
-                value={keyword}
-                onChange={(e) => {
-                  setKeyword(e.target.value);
-                  setShowKeywordSuggestions(true);
-                }}
-                onFocus={() => setShowKeywordSuggestions(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowKeywordSuggestions(false), 200)
-                }
-                className="bg-zinc-900 border-zinc-800 focus-visible:ring-[#ffe600]"
-              />
-
-              {showKeywordSuggestions &&
-                keyword &&
-                filteredKeywords.length > 0 && (
-                  <div className="absolute top-[65px] left-0 z-50 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto overflow-x-hidden">
-                    {filteredKeywords.map((kw) => (
-                      <div
-                        key={kw}
-                        className="px-4 py-3 cursor-pointer text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors border-b border-zinc-800/50 last:border-0"
-                        onClick={() => {
-                          setKeyword(kw);
-                          setShowKeywordSuggestions(false);
-                        }}
-                      >
-                        {kw}
-                      </div>
-                    ))}
-                  </div>
+              <Label className="flex items-center justify-between">
+                Target Keyword
+                {keyword && (
+                  <span className="text-xs">
+                    {isValidKeyword ? (
+                      <span className="flex items-center text-black">
+                        <CheckCircle2 size={12} className="mr-1" />
+                      </span>
+                    ) : (
+                      <span className="flex items-center text-red-400">
+                        <XCircle size={12} className="mr-1" /> Must select from
+                        list
+                      </span>
+                    )}
+                  </span>
                 )}
+              </Label>
+              <div className="relative">
+                <Input
+                  placeholder="Type to search niches..."
+                  value={keyword}
+                  onChange={(e) => {
+                    setKeyword(e.target.value);
+                    setShowKeywordSuggestions(true);
+                  }}
+                  onFocus={() => setShowKeywordSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowKeywordSuggestions(false), 200)
+                  }
+                  className={`bg-zinc-900 focus-visible:ring-[#ffe600] ${keyword && !isValidKeyword ? "border-red-500/50" : "border-zinc-800"}`}
+                />
+              </div>
+
+              {showKeywordSuggestions && filteredKeywords.length > 0 && (
+                <div className="absolute top-[70px] left-0 z-50 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto overflow-x-hidden">
+                  {filteredKeywords.map((kw) => (
+                    <div
+                      key={kw}
+                      className="px-4 py-3 cursor-pointer text-sm text-zinc-300 hover:bg-zinc-800 hover:text-[#ffe600] transition-colors border-b border-zinc-800/50 last:border-0"
+                      onClick={() => {
+                        setKeyword(kw);
+                        setShowKeywordSuggestions(false);
+                      }}
+                    >
+                      {kw}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* CITY INPUT WITH LIVE DB SUGGESTIONS */}
             <div className="grid gap-2 relative">
               <Label>City</Label>
               <Input
@@ -350,7 +498,7 @@ export function AddMonitorDialog() {
               />
 
               {showCitySuggestions && citySuggestions.length > 0 && (
-                <div className="absolute top-[65px] left-0 z-50 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto overflow-x-hidden">
+                <div className="absolute top-[70px] left-0 z-50 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto overflow-x-hidden">
                   {citySuggestions.map((cityName) => (
                     <div
                       key={cityName}
@@ -369,8 +517,8 @@ export function AddMonitorDialog() {
 
             <Button
               onClick={handleSearchCity}
-              disabled={loading || !keyword || !cityInput}
-              className="w-full mt-2 !bg-[#ffe600] text-black hover:!bg-[#ffe600]/90 font-bold"
+              disabled={loading || !isValidKeyword || !cityInput}
+              className="w-full mt-2 !bg-[#ffe600] text-black hover:!bg-[#ffe600]/90 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 className="animate-spin" />
@@ -383,7 +531,6 @@ export function AddMonitorDialog() {
           </div>
         )}
 
-        {/* STEP 2 */}
         {step === 2 && (
           <div className="grid gap-4 py-2">
             <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3">

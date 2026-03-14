@@ -48,28 +48,34 @@ export default function Home() {
           <span className="text-2xl text-[#ffff]">AlphaLeads</span>
         </div>
 
-        <nav className="flex items-center gap-4 font-medium">
+        <nav className="flex items-center gap-6 font-medium">
           <Link
             href="/#how-it-works"
-            className="hidden md:block text-base text-zinc-400 hover:text-[#ffe600] transition-colors"
+            className="hidden sm:block text-sm font-medium text-zinc-300 hover:text-white transition-colors"
           >
-            How it works:
+            How it works
           </Link>
 
+          <Link
+            href="/login"
+            className="hidden sm:block text-sm font-medium text-zinc-300 hover:text-white transition-colors"
+          >
+            Log in
+          </Link>
+
+          {/* PRIMARY FREE TRIAL BUTTON */}
           <Button
             asChild
             size="sm"
-            className="!bg-[#ffe600] !text-black font-bold text-base rounded-full hover:!bg-[#ffe600]/90 transition-all shadow-[0_0_15px_rgba(255,230,0,0.3)] px-6"
+            className="!bg-[#ffe600] !text-black font-bold text-sm rounded-full hover:!bg-[#ffe600]/90 transition-all shadow-[0_0_15px_rgba(255,230,0,0.3)] px-6 ml-2"
           >
-            <Link href="/login">Log in</Link>
+            <Link href="/trial">Free Trial</Link>
           </Button>
         </nav>
       </header>
 
-      {/* UPDATED: Reduced py-16 to py-12 */}
       <main className="flex-1 mx-auto flex w-full max-w-6xl flex-col items-center justify-start px-4 py-12 text-center">
         {/* --- HERO SECTION --- */}
-        {/* UPDATED: Reduced mb-16 to mb-12 */}
         <div className="mx-auto max-w-4xl space-y-8 mb-12 mt-8">
           <h1 className="text-balance text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl text-white">
             Hunt the <span className="text-[#ffe600]">1% of Businesses</span>{" "}
@@ -85,30 +91,43 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col items-center gap-6">
-            <Button
-              asChild
-              size="lg"
-              className="!bg-[#ffe600] !text-black px-10 text-lg h-14 rounded-full font-bold shadow-[0_0_30px_-5px_rgba(255,230,0,0.3)] hover:shadow-[0_0_40px_-5px_rgba(255,230,0,0.4)] hover:scale-105 transition-all"
-            >
-              <Link href="/login">
-                Find Leads Now <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              {/* PRIMARY HERO TRIAL BUTTON */}
+              <Button
+                asChild
+                size="lg"
+                className="!bg-[#ffe600] !text-black px-8 text-lg h-14 rounded-full font-bold shadow-[0_0_30px_-5px_rgba(255,230,0,0.3)] hover:shadow-[0_0_40px_-5px_rgba(255,230,0,0.4)] hover:scale-105 transition-all"
+              >
+                <Link href="/trial">
+                  Free Trial <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </Button>
+
+              {/* SECONDARY HERO LOGIN BUTTON */}
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="px-8 text-lg h-14 rounded-full font-bold border-white/10 bg-white/5 text-white hover:bg-white/10 transition-all"
+              >
+                <Link href="/login">Member Login</Link>
+              </Button>
+            </div>
+
             <div className="flex items-center gap-4 text-xs font-medium text-zinc-500">
               <span className="flex items-center gap-1">
-                <CheckCircle2 size={14} className="text-[#ffe600]" /> 3,000 Free
-                Credits
+                <CheckCircle2 size={14} className="text-[#ffe600]" /> 3000
+                Credits / Month
               </span>
               <span className="flex items-center gap-1">
-                <CheckCircle2 size={14} className="text-[#ffe600]" /> Payment
-                Through Skool.com
+                <CheckCircle2 size={14} className="text-[#ffe600]" /> No Credit
+                Card Required
               </span>
             </div>
           </div>
         </div>
 
         {/* --- DEMO VIDEO SECTION --- */}
-        {/* UPDATED: Reduced mb-32 to mb-20 */}
         <div className="w-full max-w-5xl mb-20 relative z-10">
           <div className="relative aspect-video w-full rounded-2xl border border-zinc-800 bg-[#0b0a0b] overflow-hidden shadow-2xl group cursor-pointer hover:border-[#ffe600]/50 transition-colors">
             <video
@@ -126,7 +145,6 @@ export default function Home() {
         </div>
 
         {/* --- HOW IT WORKS (The Sniper Logic) --- */}
-        {/* UPDATED: Reduced mb-32 to mb-20 */}
         <div id="how-it-works" className="w-full max-w-5xl mb-20 scroll-mt-32">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4 text-white">
@@ -140,7 +158,6 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Step 1 */}
             <div className={cardStyle}>
-              {/* Ghost Icon */}
               <div className="absolute -right-6 -top-6 text-white/5 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
                 <Search size={100} />
               </div>
@@ -159,7 +176,6 @@ export default function Home() {
 
             {/* Step 2 */}
             <div className={cardStyle}>
-              {/* Ghost Icon */}
               <div className="absolute -right-6 -top-6 text-white/5 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
                 <Trash2 size={100} />
               </div>
@@ -178,7 +194,6 @@ export default function Home() {
 
             {/* Step 3 */}
             <div className={cardStyle}>
-              {/* Ghost Icon */}
               <div className="absolute -right-6 -top-6 text-white/5 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
                 <Target size={100} />
               </div>
@@ -202,7 +217,6 @@ export default function Home() {
         </div>
 
         {/* --- FEATURES GRID --- */}
-        {/* UPDATED: Reduced mb-32 to mb-20 */}
         <div id="features" className="w-full max-w-5xl mb-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4 text-white">

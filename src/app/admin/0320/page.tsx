@@ -1,39 +1,66 @@
 "use client";
+
 import { useState } from "react";
+import { Copy, RefreshCw } from "lucide-react";
 
 export default function AdminInvitePage() {
-  const [email, setEmail] = useState("");
   const [secret, setSecret] = useState("");
+  const [generatedKey, setGeneratedKey] = useState("");
   const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus("Sending...");
+    setLoading(true);
+    setStatus("");
+    setGeneratedKey("");
 
+    // Notice how this calls the /api/ folder!
     const res = await fetch("/api/admin/0320", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, secret }),
+      body: JSON.stringify({ secret }),
     });
 
     const data = await res.json();
     if (res.ok) {
-      setStatus("✅ Success! Invite sent.");
-      setEmail(""); // Clear the input for the next user
+      setGeneratedKey(data.key);
+      setStatus("✅ Success! Send this code to the new member.");
     } else {
       setStatus(`❌ Error: ${data.error}`);
     }
+    setLoading(false);
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedKey);
+    setStatus("✅ Copied to clipboard!");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
-      <div className="p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">
-          AlphaLeads Admin
+    <div className="min-h-screen flex items-center justify-center bg-[#0b0a0b] px-4 text-white">
+      <div className="p-8 bg-zinc-900/50 border border-white/10 rounded-3xl shadow-2xl max-w-md w-full backdrop-blur-xl">
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          Premium Key Generator
         </h1>
-        <form onSubmit={handleInvite} className="space-y-4">
+
+        {generatedKey && (
+          <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-[#ffe600]/30 flex items-center justify-between">
+            <span className="text-[#ffe600] font-mono font-bold text-2xl tracking-[0.2em]">
+              {generatedKey}
+            </span>
+            <button
+              onClick={copyToClipboard}
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+            >
+              <Copy size={20} className="text-zinc-400 hover:text-white" />
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleGenerate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-400 mb-1">
+            <label className="block text-sm font-bold text-zinc-400 uppercase tracking-wider mb-2">
               Admin Password
             </label>
             <input
@@ -41,32 +68,26 @@ export default function AdminInvitePage() {
               required
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md bg-transparent dark:border-zinc-700 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-12 px-4 rounded-xl bg-black/50 border border-white/10 text-white focus:outline-none focus:border-[#ffe600] transition-colors"
               placeholder="Enter WEBHOOK_SECRET"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-400 mb-1">
-              Client Email
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md bg-transparent dark:border-zinc-700 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="client@example.com"
-            />
-          </div>
+
           <button
             type="submit"
-            className="w-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-medium py-2 px-4 rounded-md hover:bg-zinc-800 dark:hover:bg-white transition-colors mt-2"
+            disabled={loading || !secret}
+            className="w-full h-12 bg-[#ffe600] text-black font-bold rounded-xl hover:bg-[#ffe600]/90 transition-all flex items-center justify-center"
           >
-            Send Instant Invite
+            {loading ? (
+              <RefreshCw className="animate-spin" size={20} />
+            ) : (
+              "Generate 1-Time Code"
+            )}
           </button>
         </form>
+
         {status && (
-          <p className="mt-4 text-center text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <p className="mt-4 text-center text-sm font-medium text-zinc-400">
             {status}
           </p>
         )}

@@ -8,7 +8,9 @@ export async function POST(req: Request) {
   try {
     const { keyword, location } = await req.json();
 
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
     const {
       data: { session },
     } = await supabase.auth.getSession();

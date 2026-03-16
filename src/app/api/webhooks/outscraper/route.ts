@@ -28,17 +28,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     let allLeads: any[] = [];
 
+    // FIX 1: Correctly unpack the Outscraper arrays
     if (body.data && Array.isArray(body.data)) {
       body.data.forEach((queryGroup: any) => {
-        if (queryGroup.data && Array.isArray(queryGroup.data)) {
-          allLeads = allLeads.concat(queryGroup.data);
+        if (Array.isArray(queryGroup)) {
+          allLeads = allLeads.concat(queryGroup);
         }
       });
     }
 
-    // Sniper Filter: Only keep leads that need a website or have bad reviews
+    // FIX 2: Check lead.website instead of lead.site
     const badBusinesses = allLeads.filter((lead: any) => {
-      const hasWebsite = lead.site && lead.site.trim() !== "";
+      const hasWebsite = lead.website && lead.website.trim() !== "";
       const hasGoodRating = lead.rating && lead.rating > 4.0;
       return !hasWebsite || !hasGoodRating;
     });
@@ -65,9 +66,9 @@ export async function POST(req: Request) {
       keyword: keyword,
       rating: lead.rating || 0,
       review_count: lead.reviews || 0,
-      website: lead.site || null,
+      website: lead.website || null,
       phone: lead.phone || null,
-      bucket_category: lead.site ? "Bad Reviews" : "Needs Website",
+      bucket_category: lead.website ? "Bad Reviews" : "Needs Website",
       bucket_details: `Rating: ${lead.rating || 0}, Reviews: ${lead.reviews || 0}`,
       last_scraped_at: new Date().toISOString(),
     }));
